@@ -1,36 +1,98 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# MOTTIVME Zoom Connector
 
-## Getting Started
+Conector Zoom para OAuth multi-cliente + webhooks de presença.
 
-First, run the development server:
+Fluxo:
+
+1. Cliente autoriza Zoom em `/api/zoom/oauth-start`.
+2. Callback troca `code` por tokens e salva no Supabase.
+3. Zoom envia eventos para `/api/zoom/webhook`.
+4. Eventos de presença são salvos em `zoom_attendance_events` e opcionalmente enviados para n8n.
+
+## Setup
+
+### 1. Variáveis de ambiente
+
+Copie `.env.example` para `.env.local` no dev e configure no Vercel em produção.
+
+Obrigatórias:
+
+- `APP_BASE_URL`
+- `ZOOM_CLIENT_ID`
+- `ZOOM_CLIENT_SECRET`
+- `ZOOM_REDIRECT_URI`
+- `ZOOM_WEBHOOK_SECRET_TOKEN`
+- `OAUTH_STATE_SECRET`
+- `TOKEN_ENCRYPTION_SECRET`
+- `SUPABASE_URL`
+- `SUPABASE_SERVICE_ROLE_KEY`
+
+Opcional:
+
+- `N8N_ATTENDANCE_WEBHOOK_URL`
+
+Gere secrets com:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+openssl rand -base64 48
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 2. Supabase
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Rode `supabase/schema.sql` no SQL Editor.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### 3. Zoom App
 
-## Learn More
+Configure no Zoom Marketplace:
 
-To learn more about Next.js, take a look at the following resources:
+- OAuth Redirect URL: `https://seu-dominio/api/zoom/oauth-callback`
+- Event Notification URL: `https://seu-dominio/api/zoom/webhook`
+- Deauthorization URL: `https://seu-dominio/api/zoom/deauthorize`
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Eventos recomendados:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- `meeting.started`
+- `meeting.ended`
+- `meeting.participant_joined`
+- `meeting.participant_left`
 
-## Deploy on Vercel
+Scopes mínimos dependem do app, mas para OAuth + usuário atual geralmente precisa de leitura de user/me e eventos de meeting.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Uso
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Tela simples:
+
+```text
+/
+```
+
+Link direto:
+
+```text
+/api/zoom/oauth-start?client_name=Cliente%20ABC&client_id=abc&ghl_location_id=LOCATION_ID
+```
+
+## Payload enviado ao n8n
+
+Quando `N8N_ATTENDANCE_WEBHOOK_URL` estiver configurado, o app envia:
+
+```json
+{
+  "event": "meeting.participant_joined",
+  "zoom_account_id": "...",
+  "meeting_uuid": "...",
+  "meeting_id": "...",
+  "meeting_topic": "...",
+  "participant_name": "...",
+  "participant_email": "...",
+  "participant_join_time": "...",
+  "raw_payload": {}
+}
+```
+
+## Segurança
+
+- Nunca commitar `ZOOM_CLIENT_SECRET`.
+- Tokens são criptografados com AES-256-GCM usando `TOKEN_ENCRYPTION_SECRET`.
+- `state` OAuth é assinado com `OAUTH_STATE_SECRET`.
+- Webhooks Zoom são validados com `ZOOM_WEBHOOK_SECRET_TOKEN`.

@@ -1,20 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { notifyN8n, normalizeAttendanceEvent, storeAttendanceEvent } from '@/lib/zoom/attendance';
+import { verifyZoomWebhookSignature, zoomChallengeResponse } from '@/lib/zoom/crypto';
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
-    const event = body.event;
-    const obj = body.payload?.object || {};
-    const participant = obj.participant || {};
-
-    console.log(`📍 Event: ${event} | ${participant.user_name} (${participant.email})`);
-
-    if (event === 'meeting.participant_joined') {
-      console.log(`✅ SHOWED: ${participant.user_name}`);
+    const rawBody = await req.text();
+    if (!verifyZoomWebhookSignature(rawBody, req.headers.get('x-zm-request-timestamp'), req.headers.get('x-zm-signature'))) {
+      return NextResponse.json({ error: 'Invalid Zoom signature' }, { status: 401 });
     }
 
-    return NextResponse.json({ ok: true });
+    const body = JSON.parse(rawBody);
+    if (body.event === 'endpoint.url_validation') return NextResponse.json(zoomChallengeResponse(body.payload?.plainToken));
+
+    const attendance = normalizeAttendanceEvent(body);
+    if (attendance) {
+      await storeAttendanceEvent(attendance);
+      await notifyN8n(attendance);
+    }
+    return NextResponse.json({ ok: true, tracked: Boolean(attendance) });
   } catch (error: any) {
+    console.error('Zoom webhook error:', error);
     return NextResponse.json({ error: error.message }, { status: 400 });
   }
 }

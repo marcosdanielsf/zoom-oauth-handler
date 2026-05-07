@@ -1,0 +1,42 @@
+create table if not exists public.zoom_oauth_tokens (
+  id uuid primary key default gen_random_uuid(),
+  client_id text not null unique,
+  client_name text,
+  ghl_location_id text,
+  zoom_user_id text,
+  zoom_account_id text,
+  zoom_email text,
+  access_token_encrypted text not null,
+  refresh_token_encrypted text not null,
+  expires_at timestamptz not null,
+  scope text,
+  api_url text default 'https://api.zoom.us',
+  status text not null default 'active',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists zoom_oauth_tokens_zoom_account_idx on public.zoom_oauth_tokens (zoom_account_id);
+create index if not exists zoom_oauth_tokens_ghl_location_idx on public.zoom_oauth_tokens (ghl_location_id);
+
+create table if not exists public.zoom_attendance_events (
+  id uuid primary key default gen_random_uuid(),
+  event_type text not null,
+  zoom_account_id text,
+  meeting_uuid text,
+  meeting_id text,
+  meeting_topic text,
+  meeting_start_time timestamptz,
+  participant_id text,
+  participant_name text,
+  participant_email text,
+  join_time timestamptz,
+  leave_time timestamptz,
+  duration_seconds integer,
+  raw_payload jsonb not null,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists zoom_attendance_meeting_idx on public.zoom_attendance_events (meeting_uuid, meeting_id);
+create index if not exists zoom_attendance_participant_email_idx on public.zoom_attendance_events (participant_email);
+create index if not exists zoom_attendance_created_idx on public.zoom_attendance_events (created_at desc);

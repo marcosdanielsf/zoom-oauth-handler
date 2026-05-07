@@ -1,56 +1,50 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 
 export default function Home() {
   const [clientName, setClientName] = useState('');
-  const [authorized, setAuthorized] = useState(false);
+  const [clientId, setClientId] = useState('');
+  const [ghlLocationId, setGhlLocationId] = useState('');
+  const canSubmit = clientName.trim().length > 1;
+
+  const authUrl = useMemo(() => {
+    const params = new URLSearchParams({ client_name: clientName.trim() });
+    if (clientId.trim()) params.set('client_id', clientId.trim());
+    if (ghlLocationId.trim()) params.set('ghl_location_id', ghlLocationId.trim());
+    return `/api/zoom/oauth-start?${params.toString()}`;
+  }, [clientName, clientId, ghlLocationId]);
 
   const handleAuthorize = () => {
-    if (!clientName.trim()) {
-      alert('Digite seu nome');
-      return;
-    }
-
-    const baseUrl = 'https://zoom-oauth-handler.vercel.app/api/zoom/oauth-callback';
-    const oauthUrl = `https://zoom.us/oauth/authorize?response_type=code&client_id=J63Tj5XnRImD6NjMLsehOA&redirect_uri=${encodeURIComponent(baseUrl)}&state=${clientName}`;
-    
-    window.location.href = oauthUrl;
+    if (!canSubmit) return alert('Digite o nome do cliente/empresa');
+    window.location.href = authUrl;
   };
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-8 flex items-center justify-center">
-      <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-8">
-        <h1 className="text-3xl font-bold text-gray-800 mb-2 text-center">🎯 MOTTIVME</h1>
-        <p className="text-gray-600 text-center mb-8">Autorizar Zoom - Rastreamento de Presença</p>
-        
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Digite seu nome:
-            </label>
-            <input
-              type="text"
-              value={clientName}
-              onChange={(e) => setClientName(e.target.value)}
-              placeholder="Ex: Juliana, Fernanda, Marina..."
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-              onKeyPress={(e) => e.key === 'Enter' && handleAuthorize()}
-            />
-          </div>
-
-          <button
-            onClick={handleAuthorize}
-            className="w-full px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-bold text-lg"
-          >
-            ✅ Autorizar Zoom
-          </button>
+    <main className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-100 p-6 flex items-center justify-center">
+      <div className="max-w-lg w-full bg-white rounded-2xl shadow-xl p-8 border border-blue-100">
+        <div className="text-center mb-8">
+          <div className="text-4xl mb-3">🎯</div>
+          <h1 className="text-3xl font-bold text-gray-900">MOTTIVME Zoom Connector</h1>
+          <p className="text-gray-600 mt-2">Autorizar Zoom para rastrear presença automaticamente.</p>
         </div>
-
-        <div className="mt-8 pt-6 border-t border-gray-200">
-          <p className="text-xs text-gray-500 text-center">
-            Você será redirecionado para Zoom para confirmar as permissões.
-          </p>
+        <div className="space-y-4">
+          <label className="block">
+            <span className="block text-sm font-semibold text-gray-700 mb-2">Cliente / empresa *</span>
+            <input value={clientName} onChange={(e) => setClientName(e.target.value)} placeholder="Ex: Marina, Mentoria X, Cliente ABC" className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-gray-900" onKeyDown={(e) => e.key === 'Enter' && handleAuthorize()} />
+          </label>
+          <label className="block">
+            <span className="block text-sm font-semibold text-gray-700 mb-2">ID interno opcional</span>
+            <input value={clientId} onChange={(e) => setClientId(e.target.value)} placeholder="Ex: locationId, client_id, slug" className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-gray-900" />
+          </label>
+          <label className="block">
+            <span className="block text-sm font-semibold text-gray-700 mb-2">GHL Location ID opcional</span>
+            <input value={ghlLocationId} onChange={(e) => setGhlLocationId(e.target.value)} placeholder="Ex: Qib6gQluf6zreRWKmpKm" className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-gray-900" />
+          </label>
+          <button onClick={handleAuthorize} disabled={!canSubmit} className="w-full px-6 py-4 bg-blue-600 disabled:bg-gray-300 text-white rounded-xl hover:bg-blue-700 transition font-bold text-lg">✅ Autorizar Zoom</button>
+        </div>
+        <div className="mt-8 p-4 rounded-xl bg-blue-50 text-sm text-blue-900">
+          Depois disso, eventos do Zoom como <strong>entrou</strong>, <strong>saiu</strong> e <strong>reunião terminou</strong> vão para Supabase/n8n para marcar presença sem planilha manual.
         </div>
       </div>
     </main>
