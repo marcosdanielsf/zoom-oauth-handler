@@ -11,3 +11,4 @@ export function zoomRedirectUri() {
 export function zoomClientId() { return requiredEnv('ZOOM_CLIENT_ID'); }
 export function zoomClientSecret() { return requiredEnv('ZOOM_CLIENT_SECRET'); }
 export function n8nWebhookUrl() { return optionalEnv('N8N_ATTENDANCE_WEBHOOK_URL'); }
+export function n8nSalesHeadWebhookUrl() { return optionalEnv('N8N_SALES_HEAD_WEBHOOK_URL'); }

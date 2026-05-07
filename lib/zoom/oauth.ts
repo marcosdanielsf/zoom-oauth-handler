@@ -9,17 +9,25 @@ export type ZoomTokenResponse = {
   api_url?: string;
 };
 
-export async function exchangeCodeForTokens(code: string): Promise<ZoomTokenResponse> {
+async function zoomTokenRequest(body: URLSearchParams): Promise<ZoomTokenResponse> {
   const response = await fetch('https://zoom.us/oauth/token', {
     method: 'POST',
     headers: {
       Authorization: `Basic ${Buffer.from(`${zoomClientId()}:${zoomClientSecret()}`).toString('base64')}`,
       'Content-Type': 'application/x-www-form-urlencoded',
     },
-    body: new URLSearchParams({ grant_type: 'authorization_code', code, redirect_uri: zoomRedirectUri() }),
+    body,
   });
-  if (!response.ok) throw new Error(`Zoom token exchange failed: ${await response.text()}`);
+  if (!response.ok) throw new Error(`Zoom token request failed: ${await response.text()}`);
   return response.json();
+}
+
+export async function exchangeCodeForTokens(code: string): Promise<ZoomTokenResponse> {
+  return zoomTokenRequest(new URLSearchParams({ grant_type: 'authorization_code', code, redirect_uri: zoomRedirectUri() }));
+}
+
+export async function refreshZoomTokens(refreshToken: string): Promise<ZoomTokenResponse> {
+  return zoomTokenRequest(new URLSearchParams({ grant_type: 'refresh_token', refresh_token: refreshToken }));
 }
 
 export async function getZoomUser(accessToken: string) {

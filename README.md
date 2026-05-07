@@ -1,6 +1,6 @@
 # MOTTIVME Zoom Connector
 
-Conector Zoom para OAuth multi-cliente + webhooks de presença.
+Conector Zoom para OAuth multi-cliente, webhooks de presença, transcrição/chat de gravações e análise comercial via n8n.
 
 Fluxo:
 
@@ -8,6 +8,7 @@ Fluxo:
 2. Callback troca `code` por tokens e salva no Supabase.
 3. Zoom envia eventos para `/api/zoom/webhook`.
 4. Eventos de presença são salvos em `zoom_attendance_events` e opcionalmente enviados para n8n.
+5. Quando a gravação fica pronta, transcript/chat são baixados, salvos em `zoom_meeting_artifacts` e enviados ao Head de Vendas via n8n.
 
 ## Setup
 
@@ -30,6 +31,7 @@ Obrigatórias:
 Opcional:
 
 - `N8N_ATTENDANCE_WEBHOOK_URL`
+- `N8N_SALES_HEAD_WEBHOOK_URL`
 
 Gere secrets com:
 
@@ -55,8 +57,12 @@ Eventos recomendados:
 - `meeting.ended`
 - `meeting.participant_joined`
 - `meeting.participant_left`
+- `recording.completed`
+- `recording.transcript_completed` se disponível no app
 
 Scopes mínimos dependem do app, mas para OAuth + usuário atual geralmente precisa de leitura de user/me e eventos de meeting.
+
+Para transcrição/chat, habilite cloud recording + audio transcript na conta Zoom e adicione scopes de gravação/leitura exigidos pelo Marketplace, como `recording:read`/equivalente atual do Zoom.
 
 ## Uso
 
@@ -74,7 +80,7 @@ Link direto:
 
 ## Payload enviado ao n8n
 
-Quando `N8N_ATTENDANCE_WEBHOOK_URL` estiver configurado, o app envia:
+Quando `N8N_ATTENDANCE_WEBHOOK_URL` estiver configurado, o app envia eventos de presença:
 
 ```json
 {
@@ -89,6 +95,31 @@ Quando `N8N_ATTENDANCE_WEBHOOK_URL` estiver configurado, o app envia:
   "raw_payload": {}
 }
 ```
+
+Quando `N8N_SALES_HEAD_WEBHOOK_URL` estiver configurado, o app envia para o agente Head de Vendas:
+
+```json
+{
+  "source": "zoom_connector",
+  "event": "recording.completed",
+  "artifact_id": "...",
+  "client_id": "...",
+  "client_name": "Marina",
+  "ghl_location_id": "...",
+  "meeting_uuid": "...",
+  "meeting_topic": "...",
+  "transcript_text": "...",
+  "chat_text": "...",
+  "chat_engagement": {
+    "message_count": 6,
+    "top_participants": [{ "name": "Lead", "count": 4 }]
+  },
+  "lead_score_delta": 30,
+  "lead_score_reasons": ["call_transcribed", "high_chat_activity"]
+}
+```
+
+O score inicial considera sinais simples: transcrição disponível, volume de mensagens no chat, sinais de compra e objeções. O n8n/Head de Vendas pode sobrescrever ou enriquecer a análise.
 
 ## Segurança
 

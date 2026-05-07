@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { notifyN8n, normalizeAttendanceEvent, storeAttendanceEvent } from '@/lib/zoom/attendance';
+import { normalizeRecordingEvent, processRecordingArtifacts } from '@/lib/zoom/artifacts';
 import { verifyZoomWebhookSignature, zoomChallengeResponse } from '@/lib/zoom/crypto';
 
 export async function POST(req: NextRequest) {
@@ -17,7 +18,11 @@ export async function POST(req: NextRequest) {
       await storeAttendanceEvent(attendance);
       await notifyN8n(attendance);
     }
-    return NextResponse.json({ ok: true, tracked: Boolean(attendance) });
+
+    const recording = normalizeRecordingEvent(body);
+    const recordingResult = recording ? await processRecordingArtifacts(recording) : null;
+
+    return NextResponse.json({ ok: true, attendance_tracked: Boolean(attendance), recording_processed: recordingResult });
   } catch (error: any) {
     console.error('Zoom webhook error:', error);
     return NextResponse.json({ error: error.message }, { status: 400 });

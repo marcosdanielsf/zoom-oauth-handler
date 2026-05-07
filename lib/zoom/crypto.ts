@@ -16,6 +16,15 @@ export function encryptSecret(value: string): string {
   return `v1:${iv.toString('base64')}:${tag.toString('base64')}:${encrypted.toString('base64')}`;
 }
 
+export function decryptSecret(value: string): string {
+  const [version, ivB64, tagB64, encryptedB64] = value.split(':');
+  if (version !== 'v1' || !ivB64 || !tagB64 || !encryptedB64) throw new Error('Invalid encrypted secret format');
+  const decipher = crypto.createDecipheriv(ALGO, encryptionKey(), Buffer.from(ivB64, 'base64'));
+  decipher.setAuthTag(Buffer.from(tagB64, 'base64'));
+  const decrypted = Buffer.concat([decipher.update(Buffer.from(encryptedB64, 'base64')), decipher.final()]);
+  return decrypted.toString('utf8');
+}
+
 export function signState(payload: Record<string, unknown>, ttlSeconds = 15 * 60): string {
   const body = { ...payload, iat: nowSeconds(), exp: nowSeconds() + ttlSeconds, nonce: crypto.randomUUID() };
   const encoded = Buffer.from(JSON.stringify(body)).toString('base64url');
